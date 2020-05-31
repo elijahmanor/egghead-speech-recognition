@@ -146,9 +146,10 @@ export default function Teleprompter({
           progress + 3
         }']`
       )
-      ?.scrollIntoViewIfNeeded({
+      ?.scrollIntoView({
         behavior: 'smooth',
-        block: 'start'
+        block: 'nearest',
+        inline: 'start'
       })
   }, [progress])
 
