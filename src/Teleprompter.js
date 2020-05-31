@@ -34,22 +34,11 @@ const Interim = styled.div`
   display: inline-block;
 `
 
-const cleanWord = word =>
-  word
-    .trim()
-    .toLocaleLowerCase()
-    .replace(/[^a-z]/gi, '')
-
-export default function Teleprompter({
-  words,
-  progress,
-  listening,
-  onChange
-}) {
+const useSpeechRecognition = ({
+  continuous = true,
+  interimResults = true
+} = {}) => {
   const recog = React.useRef(null)
-  const scrollRef = React.useRef(
-    null
-  )
   const [
     results,
     setResults
@@ -60,17 +49,9 @@ export default function Teleprompter({
       window.SpeechRecognition ||
       window.webkitSpeechRecognition
     recog.current = new SpeechRecognition()
-    recog.current.continuous = true
-    recog.current.interimResults = true
-  }, [])
-
-  React.useEffect(() => {
-    if (listening) {
-      recog.current.start()
-    } else {
-      recog.current.stop()
-    }
-  }, [listening])
+    recog.current.continuous = continuous
+    recog.current.interimResults = interimResults
+  }, [continuous, interimResults])
 
   React.useEffect(() => {
     const handleResult = ({
@@ -83,31 +64,6 @@ export default function Teleprompter({
         .map(r => r[0].transcript)
         .join(' ')
       setResults(interim)
-
-      const newIndex = interim
-        .split(' ')
-        .reduce((memo, word) => {
-          if (
-            memo >= words.length
-          ) {
-            return memo
-          }
-          const similarity = stringSimilarity.compareTwoStrings(
-            cleanWord(word),
-            cleanWord(words[memo])
-          )
-          memo +=
-            similarity > 0.75
-              ? 1
-              : 0
-          return memo
-        }, progress)
-      if (
-        newIndex > progress &&
-        newIndex <= words.length
-      ) {
-        onChange(newIndex)
-      }
     }
     recog.current.addEventListener(
       'result',
@@ -119,7 +75,68 @@ export default function Teleprompter({
         handleResult
       )
     }
-  }, [onChange, progress, words])
+  }, [])
+
+  return [recog.current, results]
+}
+
+const cleanWord = word =>
+  word
+    .trim()
+    .toLocaleLowerCase()
+    .replace(/[^a-z]/gi, '')
+
+export default function Teleprompter({
+  words,
+  progress,
+  listening,
+  onChange
+}) {
+  const scrollRef = React.useRef(
+    null
+  )
+  const [
+    recog,
+    results
+  ] = useSpeechRecognition()
+
+  React.useEffect(() => {
+    /* eslint-disable no-unused-expressions */
+    if (listening) {
+      recog?.start()
+    } else {
+      recog?.stop()
+    }
+    /* eslint-enable no-unused-expressions */
+  }, [listening, recog])
+
+  React.useEffect(() => {
+    const newIndex = results
+      .split(' ')
+      .reduce((memo, word) => {
+        if (memo >= words.length) {
+          return memo
+        }
+        const similarity = stringSimilarity.compareTwoStrings(
+          cleanWord(word),
+          cleanWord(words[memo])
+        )
+        memo +=
+          similarity > 0.75 ? 1 : 0
+        return memo
+      }, progress)
+    if (
+      newIndex > progress &&
+      newIndex <= words.length
+    ) {
+      onChange(newIndex)
+    }
+  }, [
+    onChange,
+    results,
+    progress,
+    words
+  ])
 
   React.useEffect(() => {
     /* eslint-disable no-unused-expressions */
